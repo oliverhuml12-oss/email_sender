@@ -2,7 +2,7 @@
 
 A small self-hosted tool for lead-generation email: sends one personalised email at a time from your own Google Workspace mailbox, warms the mailbox up, slows down or pauses itself when bounces rise or replies drop, and tracks replies, bounces, clicks, opens and unsubscribes.
 
-Runs on free tiers: **Supabase** (database, login, background jobs, tracking) and **Cloudflare Pages** (web interface).
+Runs on free tiers: **Supabase** (database, login, background jobs, tracking) and **Cloudflare Workers** (web interface).
 
 ## What's where
 
@@ -44,26 +44,26 @@ Supabase dashboard → project **email-sender** → **Edge Functions → Secrets
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 
-### 3. Cloudflare Pages: host the web interface
+### 3. Cloudflare: host the web interface
 
-1. <https://dash.cloudflare.com> → **Workers & Pages → Create → Pages → Connect to Git** → pick `email_sender`.
-2. Build settings:
-   - Framework preset: **Vite** (or None)
+1. <https://dash.cloudflare.com> → **Workers & Pages → Create → Import a repository** → pick `email_sender`.
+2. Settings:
+   - Project / Worker name: **email-sender** (must match `name` in `web/wrangler.jsonc`)
    - Build command: `npm run build`
-   - Build output directory: `dist`
-   - Root directory: `web`
-3. Deploy. You get an address like `https://email-sender-xyz.pages.dev`. Every push to `main` redeploys.
+   - Deploy command: `npx wrangler deploy`
+   - Root directory: `/web`
+3. Deploy. You get an address like `https://email-sender.<your-subdomain>.workers.dev`. Every push to `main` redeploys.
 
 ### 4. Supabase Auth: point it at the web app
 
 Supabase dashboard → **Authentication → URL Configuration**:
 
-- **Site URL**: your Pages address
+- **Site URL**: your Cloudflare address
 - **Redirect URLs**: add the same address
 
 ### 5. Create your account and connect the mailbox
 
-1. Open the Pages address. The first account created becomes the **only** admin; everyone else is locked out.
+1. Open the Cloudflare address. The first account created becomes the **only** admin; everyone else is locked out.
 2. Confirm the email Supabase sends you, then sign in. (Supabase's built-in mailer only delivers to members of your Supabase organisation. If the confirmation never arrives, temporarily turn off **Authentication → Sign In / Providers → Email → Confirm email**, sign up, then turn it back on.)
 3. **Settings → Connect Google mailbox** → sign in with the address you want to send from → allow sending and reading email.
 4. In Settings, set the **sender name** and the **alert email**.

@@ -1,7 +1,8 @@
 import Papa from "papaparse";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Empty, Field, Modal, PageHeader, StatusBadge, useToast } from "../components/ui";
-import { date, isEmail } from "../lib/format";
+import { date, isEmail, plural } from "../lib/format";
+import { parseTyped } from "../lib/parseTyped";
 import { supabase, type Contact, type List } from "../lib/supabase";
 
 const PAGE = 50;
@@ -56,7 +57,7 @@ export default function Contacts() {
       <PageHeader
         title="Contacts"
         sub={`${total} contact${total === 1 ? "" : "s"}${listId ? " in this list" : ""}`}
-        actions={<button className="btn btn-primary" onClick={() => setImporting(true)}>Import CSV</button>}
+        actions={<button className="btn btn-primary" onClick={() => setImporting(true)}>Add contacts</button>}
       />
       <div className="split">
         <aside className="list-nav card">
@@ -84,7 +85,7 @@ export default function Contacts() {
           </div>
           {rows.length === 0 ? (
             <Empty title={total === 0 && !q && !status ? "No contacts yet" : "Nothing matches"}>
-              {total === 0 && !q && !status && "Import a CSV with at least an email column."}
+              {total === 0 && !q && !status && "Use “Add contacts” to type them in or upload a CSV."}
             </Empty>
           ) : (
             <>
@@ -159,6 +160,25 @@ function ImportModal({ lists, onClose, onDone }: { lists: List[]; onClose: () =>
   const [existingId, setExistingId] = useState(lists[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
+  const [source, setSource] = useState<"type" | "csv">("type");
+  const [typed, setTyped] = useState("");
+
+  function applyParsed(hs: string[], rows: Record<string, string>[]) {
+    setHeaders(hs);
+    setData(rows);
+    const m: Record<string, Target> = {};
+    let haveEmail = false;
+    for (const h of hs) {
+      let t = guess(h);
+      if (t === "email") { if (haveEmail) t = "field"; haveEmail = true; }
+      m[h] = t;
+    }
+    if (!haveEmail) {
+      const h = hs.find((x) => rows.slice(0, 20).some((r) => isEmail(r[x] ?? "")));
+      if (h) m[h] = "email";
+    }
+    setMap(m);
+  }
 
   function onFile(f: File) {
     setFileName(f.name);
@@ -166,25 +186,18 @@ function ImportModal({ lists, onClose, onDone }: { lists: List[]; onClose: () =>
     Papa.parse<Record<string, string>>(f, {
       header: true,
       skipEmptyLines: "greedy",
-      complete: (res) => {
-        const hs = (res.meta.fields ?? []).filter((h) => h.trim());
-        setHeaders(hs);
-        setData(res.data);
-        const m: Record<string, Target> = {};
-        let haveEmail = false;
-        for (const h of hs) {
-          let t = guess(h);
-          if (t === "email") { if (haveEmail) t = "field"; haveEmail = true; }
-          m[h] = t;
-        }
-        if (!haveEmail) {
-          const h = hs.find((x) => res.data.slice(0, 20).some((r) => isEmail(r[x] ?? "")));
-          if (h) m[h] = "email";
-        }
-        setMap(m);
-      },
+      complete: (res) => applyParsed((res.meta.fields ?? []).filter((h) => h.trim()), res.data),
       error: (err) => toast(`Couldn't read the file: ${err.message}`, "bad"),
     });
+  }
+
+  // Typed or pasted text: one contact per line, values separated by commas, semicolons or tabs (pasted from Excel).
+  function onTyped() {
+    const parsed = parseTyped(typed);
+    if (!parsed) return toast("Type at least one email address.", "bad");
+    setFileName("Typed list");
+    if (!listName) setListName(`Added ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`);
+    applyParsed(parsed.headers, parsed.rows);
   }
 
   const emailCol = headers.find((h) => map[h] === "email");
@@ -241,7 +254,7 @@ function ImportModal({ lists, onClose, onDone }: { lists: List[]; onClose: () =>
       }
       const { count: suppressed } = await supabase.from("contacts").select("id, list_contacts!inner(list_id)", { count: "exact", head: true })
         .eq("list_contacts.list_id", listId).in("status", ["bounced", "unsubscribed"]);
-      toast(`Imported ${done} contacts${suppressed ? ` (${suppressed} previously bounced or unsubscribed will be skipped)` : ""}.`);
+      toast(`Added ${plural(done, "contact", "contacts")}${suppressed ? ` (${suppressed} previously bounced or unsubscribed will be skipped)` : ""}.`);
       onDone(listId);
     } catch (e) {
       toast((e as Error).message, "bad");
@@ -250,16 +263,47 @@ function ImportModal({ lists, onClose, onDone }: { lists: List[]; onClose: () =>
   }
 
   return (
-    <Modal title="Import contacts" onClose={onClose} wide>
+    <Modal title="Add contacts" onClose={onClose} wide>
       {!headers.length ? (
-        <div className="dropzone">
-          <p>Choose a CSV file. The first row must be column names; an email column is required.</p>
-          <input type="file" accept=".csv,text/csv,.txt" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
-          <p className="muted small">Other columns (e.g. city, role, a custom first line) become variables like {"{{city}}"} in templates.</p>
-        </div>
+        <>
+          <div className="segmented import-tabs">
+            <button className={source === "type" ? "on" : ""} onClick={() => setSource("type")}>Type or paste</button>
+            <button className={source === "csv" ? "on" : ""} onClick={() => setSource("csv")}>Upload CSV</button>
+          </div>
+          {source === "type" ? (
+            <>
+              <Field
+                label="Contacts, one per line"
+                hint={<>Format: <code>email, first name, last name, company</code>. Only the email is required. You can also paste rows straight from Excel or Google Sheets, with or without a header row.</>}
+              >
+                <textarea
+                  className="code"
+                  rows={10}
+                  autoFocus
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  placeholder={"anna@firma.cz, Anna, Svobodová, Firma s.r.o.\npetr@example.com, Petr\njana@example.cz"}
+                />
+              </Field>
+              <div className="modal-actions">
+                <button className="btn" onClick={onClose}>Cancel</button>
+                <button className="btn btn-primary" disabled={!typed.trim()} onClick={onTyped}>Continue</button>
+              </div>
+            </>
+          ) : (
+            <div className="dropzone">
+              <p>Choose a CSV file. The first row must be column names; an email column is required.</p>
+              <input type="file" accept=".csv,text/csv,.txt" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
+              <p className="muted small">Other columns (e.g. city, role, a custom first line) become variables like {"{{city}}"} in templates.</p>
+            </div>
+          )}
+        </>
       ) : (
         <>
-          <p className="muted small">{fileName} · {data.length} rows</p>
+          <p className="muted small">
+            {fileName} · {plural(data.length, "row", "rows")}
+            {source === "type" && <> · <button className="btn-link small" onClick={() => setHeaders([])}>Edit text</button></>}
+          </p>
           <table className="table compact">
             <thead><tr><th>Column</th><th>Use as</th><th>Example</th></tr></thead>
             <tbody>
@@ -285,7 +329,7 @@ function ImportModal({ lists, onClose, onDone }: { lists: List[]; onClose: () =>
           {!emailCol && <p className="error">Pick which column holds the email address.</p>}
           {summary && (
             <p className="notice">
-              {summary.valid} contacts will be imported
+              {plural(summary.valid, "contact", "contacts")} will be added
               {summary.invalid ? `, ${summary.invalid} row${summary.invalid === 1 ? "" : "s"} skipped (no valid email)` : ""}
               {summary.dupes ? `, ${summary.dupes} duplicate${summary.dupes === 1 ? "" : "s"} merged` : ""}. Existing contacts are updated, not duplicated.
             </p>
@@ -315,7 +359,7 @@ function ImportModal({ lists, onClose, onDone }: { lists: List[]; onClose: () =>
               disabled={busy || !summary?.valid || headers.filter((h) => map[h] === "email").length !== 1}
               onClick={run}
             >
-              {busy ? "Importing…" : `Import ${summary?.valid ?? 0} contacts`}
+              {busy ? "Saving…" : `Add ${plural(summary?.valid ?? 0, "contact", "contacts")}`}
             </button>
           </div>
         </>

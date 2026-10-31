@@ -269,3 +269,5 @@ details summary { cursor: pointer; color: var(--ink-2); margin-bottom: 10px; }
   .list-nav { width: 100%; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
 }
+.import-tabs { margin-bottom: 16px; }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: var(--line-2); padding: 1px 5px; border-radius: 4px; }

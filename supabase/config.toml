@@ -1,0 +1,6 @@
+# Only used if you deploy with the Supabase CLI (`supabase functions deploy app`).
+project_id = "nhnryvxhirqrqgciolxn"
+
+[functions.app]
+# Each route checks its own auth: cron secret, admin JWT, or public tracking.
+verify_jwt = false

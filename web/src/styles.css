@@ -356,3 +356,24 @@ details summary { cursor: pointer; color: var(--ink-2); margin-bottom: 10px; fon
   .kpi:nth-child(odd) { border-left: 0; }
   .kpi:nth-child(-n + 2) { border-top: 0; }
 }
+
+/* ---------- Campaign finish estimate ---------- */
+.estimate { display: flex; gap: 28px; align-items: stretch; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-panel); padding: 20px 24px; margin-bottom: 14px; }
+.estimate-main { flex: 0 0 230px; padding-right: 24px; border-right: 1px solid var(--line-2); }
+.estimate-lead { font-size: 13px; color: var(--ink-2); font-weight: 550; }
+.estimate-date { font-size: 28px; font-weight: 700; line-height: 1.2; margin: 4px 0 2px; color: var(--blue); }
+.estimate-blocked .estimate-date { color: var(--ink-3); }
+.estimate-sub { font-size: 12.5px; color: var(--ink-3); }
+.estimate-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+.estimate-detail p { margin: 0; max-width: 72ch; }
+.estimate-days { display: flex; align-items: flex-end; gap: 6px; flex-wrap: wrap; }
+.estimate-day { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 34px; }
+.estimate-count { font-size: 11px; color: var(--ink-3); }
+.estimate-bar { width: 18px; border-radius: 4px 4px 2px 2px; background: var(--blue-soft); }
+.estimate-day:last-of-type .estimate-bar { background: var(--blue); }
+.estimate-dow { font-size: 11px; color: var(--ink-2); }
+.estimate-more { align-self: center; margin-left: 4px; }
+@media (max-width: 860px) {
+  .estimate { flex-direction: column; gap: 14px; }
+  .estimate-main { flex: none; padding: 0 0 14px; border-right: 0; border-bottom: 1px solid var(--line-2); }
+}

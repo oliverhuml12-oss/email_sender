@@ -64,7 +64,7 @@ function AdminApp() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden><rect width="32" height="32" rx="8" fill="currentColor" /><path d="M7 11l9 6 9-6M7 10h18v13H7z" fill="none" stroke="#fff" strokeWidth="2" strokeLinejoin="round" /></svg>
+          <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden><rect width="32" height="32" rx="8" fill="currentColor" /><path d="M7 11l9 6 9-6M7 10h18v13H7z" fill="none" stroke="#fff" strokeWidth="2" strokeLinejoin="round" /><circle cx="24.5" cy="9" r="3.6" fill="#ff2e88" style={{ filter: "drop-shadow(0 0 3px rgba(255,46,136,.9))" }} /></svg>
           <span>Email Sender</span>
         </div>
         <nav>
